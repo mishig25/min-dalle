@@ -18,14 +18,14 @@ class ResnetBlock(nn.Module):
 
     def forward(self, x: FloatTensor) -> FloatTensor:
         h = x
-        h = self.norm1.forward(h)
+        h = self.norm1(h)
         h *= torch.sigmoid(h)
-        h = self.conv1.forward(h)
-        h = self.norm2.forward(h)
+        h = self.conv1(h)
+        h = self.norm2(h)
         h *= torch.sigmoid(h)
         h = self.conv2(h)
         if not self.is_middle:
-            x = self.nin_shortcut.forward(x)
+            x = self.nin_shortcut(x)
         return x + h
 
 
@@ -43,9 +43,9 @@ class AttentionBlock(nn.Module):
         n, m = 2 ** 9, x.shape[0]
         h = x
         h = self.norm(h)
-        k = self.k.forward(h)
-        v = self.v.forward(h)
-        q = self.q.forward(h)
+        k = self.k(h)
+        v = self.v(h)
+        q = self.q(h)
         k = k.reshape(m, n, -1)
         v = v.reshape(m, n, -1)
         q = q.reshape(m, n, -1)
@@ -57,7 +57,7 @@ class AttentionBlock(nn.Module):
         h = torch.bmm(v, w)
         token_count = int(sqrt(h.shape[-1]))
         h = h.reshape(m, n, token_count, token_count)
-        h = self.proj_out.forward(h)
+        h = self.proj_out(h)
         return x + h
 
 
@@ -69,9 +69,9 @@ class MiddleLayer(nn.Module):
         self.block_2 = ResnetBlock(9, 9)
     
     def forward(self, h: FloatTensor) -> FloatTensor:
-        h = self.block_1.forward(h)
-        h = self.attn_1.forward(h)
-        h = self.block_2.forward(h)
+        h = self.block_1(h)
+        h = self.attn_1(h)
+        h = self.block_2(h)
         return h
 
 
@@ -83,8 +83,8 @@ class Upsample(nn.Module):
         self.conv = nn.Conv2d(n, n, 3, padding=1)
 
     def forward(self, x: FloatTensor) -> FloatTensor:
-        x = self.upsample.forward(x.to(torch.float32))
-        x = self.conv.forward(x)
+        x = self.upsample(x.to(torch.float32))
+        x = self.conv(x)
         return x
 
 
@@ -119,11 +119,11 @@ class UpsampleBlock(nn.Module):
 
     def forward(self, h: FloatTensor) -> FloatTensor:
         for j in range(3):
-            h = self.block[j].forward(h)
+            h = self.block[j](h)
             if self.has_attention:
-                h = self.attn[j].forward(h)
+                h = self.attn[j](h)
         if self.has_upsample:
-            h = self.upsample.forward(h)
+            h = self.upsample(h)
         return h
 
 
@@ -146,15 +146,15 @@ class Decoder(nn.Module):
         self.conv_out = nn.Conv2d(2 ** 7, 3, 3, padding=1)
 
     def forward(self, z: FloatTensor) -> FloatTensor:
-        z = self.conv_in.forward(z)
-        z = self.mid.forward(z)
+        z = self.conv_in(z)
+        z = self.mid(z)
 
         for i in reversed(range(5)):
-            z = self.up[i].forward(z)
+            z = self.up[i](z)
 
-        z = self.norm_out.forward(z)
+        z = self.norm_out(z)
         z *= torch.sigmoid(z)
-        z = self.conv_out.forward(z)
+        z = self.conv_out(z)
         return z
 
 
@@ -175,15 +175,15 @@ class VQGanDetokenizer(nn.Module):
             z = z.view([grid_size, grid_size, 2 ** 4, 2 ** 4])
             z = z.flatten(1, 2).transpose(1, 0).flatten(1, 2)
             z = z.flatten().unsqueeze(1)
-            z = self.embedding.forward(z)
+            z = self.embedding(z)
             z = z.view((1, token_count, token_count, 2 ** 8))
         else:
-            z = self.embedding.forward(z)
+            z = self.embedding(z)
             z = z.view((z.shape[0], 2 ** 4, 2 ** 4, 2 ** 8))
 
         z = z.permute(0, 3, 1, 2).contiguous()
-        z = self.post_quant_conv.forward(z)
-        z = self.decoder.forward(z)
+        z = self.post_quant_conv(z)
+        z = self.decoder(z)
         z = z.permute(0, 2, 3, 1)
         z = z.clip(0.0, 1.0) * 255
 

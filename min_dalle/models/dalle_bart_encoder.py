@@ -14,12 +14,12 @@ class GLU(nn.Module):
         self.fc2 = nn.Linear(count_middle, count_in_out, bias=False)
     
     def forward(self, z: FloatTensor) -> FloatTensor:
-        z = self.ln0.forward(z)
-        w = self.fc0.forward(z)
-        w = self.gelu.forward(w)
-        v = self.fc1.forward(z)
-        z = self.ln1.forward(w * v)
-        z = self.fc2.forward(z)
+        z = self.ln0(z)
+        w = self.fc0(z)
+        w = self.gelu(w)
+        v = self.fc1(z)
+        z = self.ln1(w * v)
+        z = self.fc2(z)
         return z
 
 
@@ -60,7 +60,7 @@ class AttentionBase(nn.Module):
         )
         shape = attention_output.shape[:2] + (self.embed_count,)
         attention_output = attention_output.reshape(shape)
-        attention_output = self.out_proj.forward(attention_output)
+        attention_output = self.out_proj(attention_output)
         return attention_output
 
 
@@ -70,10 +70,10 @@ class EncoderSelfAttention(AttentionBase):
         encoder_state: FloatTensor,
         attention_mask: BoolTensor
     ) -> FloatTensor:
-        keys = self.k_proj.forward(encoder_state)
-        values = self.v_proj.forward(encoder_state)
-        queries = self.q_proj.forward(encoder_state)
-        return super().forward(keys, values, queries, attention_mask)
+        keys = self.k_proj(encoder_state)
+        values = self.v_proj(encoder_state)
+        queries = self.q_proj(encoder_state)
+        return super()(keys, values, queries, attention_mask)
 
 
 class EncoderLayer(nn.Module):
@@ -90,12 +90,12 @@ class EncoderLayer(nn.Module):
         attention_mask: BoolTensor
     ) -> FloatTensor:
         residual = encoder_state
-        encoder_state = self.pre_self_attn_layer_norm.forward(encoder_state)
-        encoder_state = self.self_attn.forward(encoder_state, attention_mask)
-        encoder_state = self.self_attn_layer_norm.forward(encoder_state)
+        encoder_state = self.pre_self_attn_layer_norm(encoder_state)
+        encoder_state = self.self_attn(encoder_state, attention_mask)
+        encoder_state = self.self_attn_layer_norm(encoder_state)
         encoder_state = residual + encoder_state
         residual = encoder_state
-        encoder_state = self.glu.forward(encoder_state)
+        encoder_state = self.glu(encoder_state)
         encoder_state = residual + encoder_state
         return encoder_state
 
@@ -131,11 +131,11 @@ class DalleBartEncoder(nn.Module):
     def forward(self, text_tokens: LongTensor) -> FloatTensor:
         attention_mask = text_tokens.not_equal(1)[:, None, None, :]
         encoder_state = (
-            self.embed_tokens.forward(text_tokens) +
-            self.embed_positions.forward(self.pose_tokens)
+            self.embed_tokens(text_tokens) +
+            self.embed_positions(self.pose_tokens)
         )
-        encoder_state = self.layernorm_embedding.forward(encoder_state)
+        encoder_state = self.layernorm_embedding(encoder_state)
         for layer in self.layers:
-            encoder_state = layer.forward(encoder_state, attention_mask)
-        encoder_state = self.final_ln.forward(encoder_state)
+            encoder_state = layer(encoder_state, attention_mask)
+        encoder_state = self.final_ln(encoder_state)
         return encoder_state

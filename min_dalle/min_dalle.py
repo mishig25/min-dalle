@@ -164,7 +164,7 @@ class MinDalle:
         torch.cuda.empty_cache()
         if not self.is_reusable: self.init_detokenizer()
         if is_verbose: print("detokenizing image")
-        images = self.detokenizer.forward(is_seamless, image_tokens)
+        images = self.detokenizer(is_seamless, image_tokens)
         if not self.is_reusable: del self.detokenizer
         return images
 
@@ -199,7 +199,7 @@ class MinDalle:
         if not self.is_reusable: self.init_encoder()
         if is_verbose: print("encoding text tokens")
         with torch.cuda.amp.autocast(dtype=self.dtype):
-            encoder_state = self.encoder.forward(text_tokens)
+            encoder_state = self.encoder(text_tokens)
         if not self.is_reusable: del self.encoder
         torch.cuda.empty_cache()
 
